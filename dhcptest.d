@@ -25,9 +25,13 @@ import std.socket;
 
 version(Windows)
     import std.c.windows.winsock : ntohs, htons, ntohl, htonl;
-else
-version(Posix)
+else version(Posix)
+{
 	import core.sys.posix.netdb  : ntohs, htons, ntohl, htonl;
+    import core.sys.posix.sys.ioctl;
+    import core.sys.posix.sys.socket;
+    import linux.if_header;
+}
 else
 	static assert(false, "Unsupported platform");
 
@@ -469,7 +473,32 @@ bool receivePackets(Socket socket, bool delegate(DHCPPacket, Address) handler, D
 
 ubyte[] parseMac(string mac)
 {
-	return mac.split(":").map!(s => s.parse!ubyte(16)).array();
+    auto mac_arr = mac.split(":");
+    if (mac_arr.length > 1)
+    {
+	    return mac_arr.map!(s => s.parse!ubyte(16)).array();
+    }
+    else
+    {
+        version (Posix)
+        {
+            int sock = socket(AF_INET, SOCK_DGRAM, 0);
+            ifreq ifr;
+            ifr.ifr_ifrn.ifrn_name[0..mac.length] = mac.dup;
+            ifr.ifr_ifrn.ifrn_name[mac.length] = '\0';
+            ioctl(sock, SIOCGIFHWADDR, &ifr);
+            ubyte[6] ret;
+            for(int i = 0; i < 6; i++)
+            {
+                ret[i] = ifr.ifr_ifru.ifru_hwaddr.sa_data[i];
+            }
+            return ret.dup;
+        }
+        else
+        {
+            return [];
+        }
+    }
 }
 
 int main(string[] args)
