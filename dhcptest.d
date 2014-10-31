@@ -473,10 +473,9 @@ bool receivePackets(Socket socket, bool delegate(DHCPPacket, Address) handler, D
 
 ubyte[] parseMac(string mac)
 {
-    auto mac_arr = mac.split(":");
-    if (mac_arr.length > 1)
+    if (mac[0] != '@')
     {
-	    return mac_arr.map!(s => s.parse!ubyte(16)).array();
+	    return mac.split(":").map!(s => s.parse!ubyte(16)).array();
     }
     else
     {
@@ -484,8 +483,8 @@ ubyte[] parseMac(string mac)
         {
             int sock = socket(AF_INET, SOCK_DGRAM, 0);
             ifreq ifr;
-            ifr.ifr_ifrn.ifrn_name[0..mac.length] = mac.dup;
-            ifr.ifr_ifrn.ifrn_name[mac.length] = '\0';
+            ifr.ifr_ifrn.ifrn_name[0..mac.length-1] = mac[1..mac.length];
+            ifr.ifr_ifrn.ifrn_name[mac.length-1] = '\0';
             ioctl(sock, SIOCGIFHWADDR, &ifr);
             ubyte[6] ret;
             for(int i = 0; i < 6; i++)
